@@ -4,7 +4,7 @@ pub mod community;
 mod handlers;
 pub mod membership;
 use std::sync::Arc;
-
+mod invite;
 use actix_web::web::ServiceConfig;
 pub use handlers::configure_routes;
 use sqlx::{Pool, Sqlite};
