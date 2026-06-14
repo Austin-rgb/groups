@@ -21,7 +21,6 @@ pub struct CreateInvite {
     pub exp: DateTime<Utc>,
 }
 
-
 #[derive(Debug, Error)]
 pub enum InviteRepositoryError {
     #[error("invite not found")]
@@ -36,30 +35,15 @@ pub enum InviteRepositoryError {
 
 #[async_trait]
 pub trait InviteRepository: Send + Sync {
-    async fn create(
-        &self,
-        invite: CreateInvite,
-    ) -> Result<Invite, InviteRepositoryError>;
+    async fn create(&self, invite: CreateInvite) -> Result<Invite, InviteRepositoryError>;
 
-    async fn get_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<Invite, InviteRepositoryError>;
+    async fn get_by_id(&self, id: Uuid) -> Result<Invite, InviteRepositoryError>;
 
-    async fn list(
-        &self,
-    ) -> Result<Vec<Invite>, InviteRepositoryError>;
+    async fn list(&self) -> Result<Vec<Invite>, InviteRepositoryError>;
 
-async fn list_by_user(
-        &self,
-        user: Uuid,
-    ) -> Result<Vec<Invite>, InviteRepositoryError>;
+    async fn list_by_user(&self, user: Uuid) -> Result<Vec<Invite>, InviteRepositoryError>;
 
-
-    async fn delete(
-        &self,
-        id: Uuid,
-    ) -> Result<(), InviteRepositoryError>;
+    async fn delete(&self, id: Uuid) -> Result<(), InviteRepositoryError>;
 }
 
 #[derive(Clone)]
@@ -79,10 +63,7 @@ impl SqliteInviteRepository {
 
 #[async_trait]
 impl InviteRepository for SqliteInviteRepository {
-    async fn create(
-        &self,
-        invite: CreateInvite,
-    ) -> Result<Invite, InviteRepositoryError> {
+    async fn create(&self, invite: CreateInvite) -> Result<Invite, InviteRepositoryError> {
         let entity = Invite {
             id: Uuid::new_v4(),
             community: invite.community,
@@ -113,17 +94,12 @@ impl InviteRepository for SqliteInviteRepository {
 
         match result {
             Ok(_) => Ok(entity),
-            Err(sqlx::Error::Database(_)) => {
-                Err(InviteRepositoryError::AlreadyExists)
-            }
+            Err(sqlx::Error::Database(_)) => Err(InviteRepositoryError::AlreadyExists),
             Err(_) => Err(InviteRepositoryError::DbError),
         }
     }
 
-    async fn get_by_id(
-        &self,
-        id: Uuid,
-    ) -> Result<Invite, InviteRepositoryError> {
+    async fn get_by_id(&self, id: Uuid) -> Result<Invite, InviteRepositoryError> {
         sqlx::query_as!(
             Invite,
             r#"
@@ -144,9 +120,7 @@ impl InviteRepository for SqliteInviteRepository {
         .ok_or(InviteRepositoryError::NotFound)
     }
 
-    async fn list(
-        &self,
-    ) -> Result<Vec<Invite>, InviteRepositoryError> {
+    async fn list(&self) -> Result<Vec<Invite>, InviteRepositoryError> {
         sqlx::query_as!(
             Invite,
             r#"
@@ -165,13 +139,10 @@ impl InviteRepository for SqliteInviteRepository {
         .map_err(|_| InviteRepositoryError::DbError)
     }
 
-async fn list_by_user(
-    &self,
-    user: Uuid,
-) -> Result<Vec<Invite>, InviteRepositoryError> {
-    sqlx::query_as!(
-        Invite,
-        r#"
+    async fn list_by_user(&self, user: Uuid) -> Result<Vec<Invite>, InviteRepositoryError> {
+        sqlx::query_as!(
+            Invite,
+            r#"
         SELECT
             id as "id: Uuid",
             community as "community: Uuid",
@@ -182,17 +153,14 @@ async fn list_by_user(
         WHERE user = ?
         ORDER BY created DESC
         "#,
-        user,
-    )
-    .fetch_all(&self.pool)
-    .await
-    .map_err(|_| InviteRepositoryError::DbError)
-}
+            user,
+        )
+        .fetch_all(&self.pool)
+        .await
+        .map_err(|_| InviteRepositoryError::DbError)
+    }
 
-    async fn delete(
-        &self,
-        id: Uuid,
-    ) -> Result<(), InviteRepositoryError> {
+    async fn delete(&self, id: Uuid) -> Result<(), InviteRepositoryError> {
         let rows = sqlx::query!(
             r#"
             DELETE FROM invite

@@ -29,13 +29,13 @@ async fn assert_member_of(
     user_id: Uuid,
     community_id: Uuid,
 ) -> Result<(), HttpResponse> {
-    match membership_repo.list_by_member(user_id).await {
+    match membership_repo.exists(user_id,community_id).await {
         Err(e) => Err(error_response(
             e,
             actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
         )),
-        Ok(memberships) => {
-            if memberships.iter().any(|m| m.community == community_id) {
+        Ok(membership) => {
+            if membership {
                 Ok(())
             } else {
                 Err(error_response(
@@ -169,7 +169,6 @@ async fn list_memberships(
         Err(e) => error_response(e, actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
-
 
 #[delete("/memberships/{id}")]
 async fn delete_membership(
@@ -359,6 +358,7 @@ async fn delete_invite(
 pub fn configure_routes(cfg: &mut web::ServiceConfig) {
     cfg.service(create_invite)
         .service(get_invite)
+        .service(accept_invite)
         .service(list_invites)
         .service(delete_invite)
         .service(create_community)
