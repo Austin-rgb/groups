@@ -1,6 +1,6 @@
 // handlers.rs
 use actix_web::{HttpResponse, Responder, delete, get, post, put, web};
-use actixutils::{Auth, Authority, Identity};
+use actixutils::{Auth, Identity};
 use std::sync::Arc;
 use uuid::Uuid;
 
