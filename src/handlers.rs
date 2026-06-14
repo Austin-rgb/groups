@@ -1,6 +1,6 @@
 // handlers.rs
 use actix_web::{HttpResponse, Responder, delete, get, post, put, web};
-use actixutils::{Auth, Identity};
+use actixutils::{Auth, Authority, Identity};
 use std::sync::Arc;
 use uuid::Uuid;
 
@@ -21,30 +21,6 @@ fn error_response(
     HttpResponse::build(status).json(serde_json::json!({
         "error": error.to_string()
     }))
-}
-
-/// Checks membership in a single query. Returns Ok(()) or a ready HttpResponse.
-async fn assert_member_of(
-    membership_repo: &SqliteMembershipRepository,
-    user_id: Uuid,
-    community_id: Uuid,
-) -> Result<(), HttpResponse> {
-    match membership_repo.exists(user_id,community_id).await {
-        Err(e) => Err(error_response(
-            e,
-            actix_web::http::StatusCode::INTERNAL_SERVER_ERROR,
-        )),
-        Ok(membership) => {
-            if membership {
-                Ok(())
-            } else {
-                Err(error_response(
-                    "Forbidden",
-                    actix_web::http::StatusCode::FORBIDDEN,
-                ))
-            }
-        }
-    }
 }
 
 // ============ Community Handlers ============
@@ -71,8 +47,14 @@ async fn get_community(
     path: web::Path<Uuid>,
 ) -> impl Responder {
     let id = path.into_inner();
-    if let Err(resp) = assert_member_of(&membership_repo, user.sub, id).await {
-        return resp;
+    if !match membership_repo.exists(user.sub, id).await {
+        Ok(f) => f,
+        Err(e) => {
+            tracing::error!("Error in confirming membership: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    } {
+        return HttpResponse::Forbidden().finish();
     }
     match repo.get_by_id(id).await {
         Ok(community) => HttpResponse::Ok().json(community),
@@ -105,8 +87,14 @@ async fn update_community(
     request: web::Json<UpdateCommunity>,
 ) -> impl Responder {
     let id = path.into_inner();
-    if let Err(resp) = assert_member_of(&membership_repo, user.sub, id).await {
-        return resp;
+    if !match membership_repo.exists(user.sub, id).await {
+        Ok(f) => f,
+        Err(e) => {
+            tracing::error!("Error in confirming membership: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    } {
+        return HttpResponse::Forbidden().finish();
     }
     match repo.update(id, request.into_inner()).await {
         Ok(community) => HttpResponse::Ok().json(community),
@@ -126,8 +114,14 @@ async fn delete_community(
     path: web::Path<Uuid>,
 ) -> impl Responder {
     let id = path.into_inner();
-    if let Err(resp) = assert_member_of(&membership_repo, user.sub, id).await {
-        return resp;
+    if !match membership_repo.exists(user.sub, id).await {
+        Ok(f) => f,
+        Err(e) => {
+            tracing::error!("Error in confirming membership: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    } {
+        return HttpResponse::Forbidden().finish();
     }
     match repo.delete(id).await {
         Ok(()) => HttpResponse::NoContent().finish(),
@@ -210,8 +204,14 @@ async fn create_invite(
 ) -> impl Responder {
     let cmd = request.into_inner();
 
-    if let Err(resp) = assert_member_of(&membership_repo, user.sub, cmd.community).await {
-        return resp;
+    if !match membership_repo.exists(user.sub, cmd.community).await {
+        Ok(f) => f,
+        Err(e) => {
+            tracing::error!("Error in confirming membership: {e}");
+            return HttpResponse::InternalServerError().finish();
+        }
+    } {
+        return HttpResponse::Forbidden().finish();
     }
 
     match repo.create(cmd).await {
@@ -258,6 +258,16 @@ async fn list_invites(
         Err(e) => error_response(e, actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
     }
 }
+
+#[get("/admin/invites")]
+async fn list(repo: web::Data<Arc<SqliteInviteRepository>>) -> impl Responder {
+    match repo.list().await {
+        Ok(invites) => HttpResponse::Ok().json(invites),
+
+        Err(e) => error_response(e, actix_web::http::StatusCode::INTERNAL_SERVER_ERROR),
+    }
+}
+
 #[post("/invites/{id}/accept")]
 async fn accept_invite(
     Auth(user): Auth<Identity>,
@@ -334,7 +344,8 @@ async fn delete_invite(
 
     let is_invitee = invite.user == user.sub;
 
-    let is_community_member = assert_member_of(&membership_repo, user.sub, invite.community)
+    let is_community_member = membership_repo
+        .exists(user.sub, invite.community)
         .await
         .is_ok();
 

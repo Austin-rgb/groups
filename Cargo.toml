@@ -14,3 +14,4 @@ tokio = { version = "1", features = ["rt-multi-thread", "macros"] }
 actixutils = { path = "../actixutils" }
 actix-web = "4.13.0"
 serde_json = "1.0.150"
+tracing = "0.1.44"

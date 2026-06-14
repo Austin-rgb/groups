@@ -42,11 +42,11 @@ pub trait MembershipRepository: Send + Sync {
 
     async fn list(&self) -> Result<Vec<Membership>, MembershipRepositoryError>;
 
-async fn exists(
-    &self,
-    member: Uuid,
-    community: Uuid,
-) -> Result<bool, MembershipRepositoryError>;
+    async fn exists(
+        &self,
+        member: Uuid,
+        community: Uuid,
+    ) -> Result<bool, MembershipRepositoryError>;
 
     async fn update(
         &self,
@@ -109,13 +109,12 @@ impl MembershipRepository for SqliteMembershipRepository {
         Ok(membership)
     }
 
-async fn exists(
-    &self,
-    member: Uuid,
-    community: Uuid,
-) -> Result<bool, MembershipRepositoryError> {
-    let exists =
-        sqlx::query_scalar!(
+    async fn exists(
+        &self,
+        member: Uuid,
+        community: Uuid,
+    ) -> Result<bool, MembershipRepositoryError> {
+        let exists = sqlx::query_scalar!(
             r#"
             SELECT EXISTS(
                 SELECT 1
@@ -129,8 +128,8 @@ async fn exists(
         )
         .fetch_one(&self.pool)
         .await?;
-Ok(exists!=0)
-}
+        Ok(exists != 0)
+    }
 
     async fn get_by_id(&self, id: Uuid) -> Result<Membership, MembershipRepositoryError> {
         sqlx::query_as!(
