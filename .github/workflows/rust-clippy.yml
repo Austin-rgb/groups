@@ -39,11 +39,14 @@ jobs:
           override: true
 
       - name: Install required cargo
-        run: cargo install clippy-sarif sarif-fmt
+        run: cargo install clippy-sarif sarif-fmt sqlx-cli
+
+      - name: Run sqlx migrations 
+        run: cargo sqlx migrate run --database-url sqlite:database.db/?mode=rwc
 
       - name: Run rust-clippy
         run:
-          cargo clippy
+          DATABASE="sqlite:database.db/?mode=rwc" cargo clippy
           --all-features
           --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
