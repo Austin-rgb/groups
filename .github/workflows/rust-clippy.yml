@@ -46,7 +46,7 @@ jobs:
 
       - name: Run rust-clippy
         run:
-          DATABASE="sqlite:database.db/?mode=rwc" cargo clippy
+          DATABASE_URL="sqlite:database.db/?mode=rwc" cargo clippy
           --all-features
           --message-format=json | clippy-sarif | tee rust-clippy-results.sarif | sarif-fmt
         continue-on-error: true
